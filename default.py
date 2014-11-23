@@ -4,7 +4,7 @@ import simplejson as json
 from xbmcgui import ListItem
 
 # plugin constants
-version = "0.0.2"
+version = "0.0.3"
 plugin = "nfbca - " + version
 
 __settings__ = xbmcaddon.Addon(id='plugin.video.nfbca')
@@ -51,7 +51,7 @@ class MediaItem:
         self.ListItem = ListItem()
         self.Image = ''
         self.Url = ''
-        self.Isfolder = False
+        self.IsFolder = False
         self.Mode = ''
         
 ## Get URL
@@ -112,33 +112,63 @@ def cleanHtml( dirty ):
 ## Build the main directory
 ########################################################
 def BuildMainDirectory():
+    #print 'Build Main Directory'
     MediaItems = []
-    main = [
-        (__settings__.getLocalizedString(30000), topics_thumb, str(M_FEATURED), 'en'),
-        (__settings__.getLocalizedString(30001), topics_thumb, str(M_FEATURED), 'fr')
-        ]
-    for name, thumbnailImage, mode, lang in main:
-        Mediaitem = MediaItem()
-        Url = ''
-        Mode = mode
-        Title = name
-        Thumb = thumbnailImage
-        Mediaitem.Url = sys.argv[0] + "?url=" + urllib.quote_plus(Url) + "&mode=" + str(Mode) + "&lang=" + lang
-        Mediaitem.ListItem.setThumbnailImage(Thumb)
-        Mediaitem.ListItem.setLabel(Title)
-        Mediaitem.Isfolder = True
-        MediaItems.append(Mediaitem)
+
+    # One Mediaitem for Featured
+    Mediaitem = MediaItem()
+    Url = ''
+    Mode = M_FEATURED
+    Title = __settings__.getLocalizedString(30011)
+    Thumb = topics_thumb
+    Mediaitem.Url = sys.argv[0] + "?url=" + urllib.quote_plus(Url) + "&mode=" + str(Mode) + "&lang=" + SetContentLang()
+    Mediaitem.ListItem.setThumbnailImage(Thumb)
+    Mediaitem.ListItem.setLabel(Title)
+    Mediaitem.IsFolder = True
+    MediaItems.append(Mediaitem)    
+
+    # One Mediaitem for Channels
+    Mediaitem = MediaItem()
+    Url = ''
+    Mode = M_BROWSE_CHANNELS
+    Title = __settings__.getLocalizedString(30012)
+    Thumb = topics_thumb
+    Mediaitem.Url = sys.argv[0] + "?url=" + urllib.quote_plus(Url) + "&mode=" + str(Mode) + "&lang=" + SetContentLang()
+    Mediaitem.ListItem.setThumbnailImage(Thumb)
+    Mediaitem.ListItem.setLabel(Title)
+    Mediaitem.IsFolder = True
+    MediaItems.append(Mediaitem)
         
+    # One Mediaitem for Search
+    Mediaitem = MediaItem()
+    Url = ''
+    Mode = M_SEARCH
+    Title = __settings__.getLocalizedString(30013)
+    Thumb = search_thumb
+    Mediaitem.Url = sys.argv[0] + "?url=" + urllib.quote_plus(Url) + "&mode=" + str(Mode) + "&lang=" + SetContentLang()
+    Mediaitem.ListItem.setThumbnailImage(Thumb)
+    Mediaitem.ListItem.setLabel(Title)
+    Mediaitem.IsFolder = True
+    MediaItems.append(Mediaitem)
+    
     addDir(MediaItems)
+
     # End of Directory
     xbmcplugin.endOfDirectory(int(sys.argv[1]))
-    
-def Featured(lang):
+    ## Set Default View Mode
+    SetViewMode()
+
+###########################################################
+## Mode == M_FEATURED
+## BROWSE FEATURED
+###########################################################
+def Featured():
+    #print 'Browse Featured'
     # set content type so library shows more views and info
     xbmcplugin.setContent(int(sys.argv[1]), 'movies')
-    
+
     # Get featured homepage contents
-    URL = API_URL % (FEATURED % lang)
+    URL = API_URL % (FEATURED % SetContentLang())
     data = getURL(URL)
     #data = load_local_json('featured.json')
     items = json.loads(data)
@@ -163,54 +193,31 @@ def Featured(lang):
         Mediaitem.ListItem.setThumbnailImage(Mediaitem.Image)
         Mediaitem.ListItem.setLabel(Title)
         Mediaitem.ListItem.setProperty('IsPlayable', 'true')
-        #Mediaitem.Isfolder = True
         MediaItems.append(Mediaitem)
-    # One Mediaitem for Channels
-    Mediaitem = MediaItem()
-    Url = ''
-    Mode = M_BROWSE_CHANNELS
-    Title = __settings__.getLocalizedString(30012)
-    Thumb = topics_thumb
-    Mediaitem.Url = sys.argv[0] + "?url=" + urllib.quote_plus(Url) + "&mode=" + str(Mode) + "&lang=" + lang
-    Mediaitem.ListItem.setThumbnailImage(Thumb)
-    Mediaitem.ListItem.setLabel(Title)
-    Mediaitem.Isfolder = True
-    MediaItems.append(Mediaitem)
-    # One Mediaitem for Search
-    Mediaitem = MediaItem()
-    Url = ''
-    Mode = M_SEARCH
-    Title = __settings__.getLocalizedString(30013)
-    Thumb = search_thumb
-    Mediaitem.Url = sys.argv[0] + "?url=" + urllib.quote_plus(Url) + "&mode=" + str(Mode) + "&lang=" + lang
-    Mediaitem.ListItem.setThumbnailImage(Thumb)
-    Mediaitem.ListItem.setLabel(Title)
-    Mediaitem.Isfolder = True
-    MediaItems.append(Mediaitem)
-    addDir(MediaItems)
 
+    addDir(MediaItems)
+    
     # End of Directory
     xbmcplugin.endOfDirectory(int(sys.argv[1]))
-    ## Set Default View Mode. This might break with different skins. But who cares?
-    #xbmc.executebuiltin("Container.SetViewMode(503)")
+    ## Set Default View Mode
     SetViewMode()
     
 ###########################################################
 ## Mode == M_BROWSE_CHANNELS
 ## BROWSE CHANNELS
 ###########################################################
-def BrowseChannels(lang):   
+def BrowseChannels():   
     #print 'Browse Channels'
     # set content type so library shows more views and info
     xbmcplugin.setContent(int(sys.argv[1]), 'movies')
-    
-    # Get featured homepage contents
+
+    # Get channels contents
     URL = API_URL % CHANNELLIST
     data = getURL(URL)
     #data = load_local_json('channels.json')
     items = json.loads(data)
     itemList = items['data']
-    itemList = [item for item in itemList if item.get('language', '') == lang]
+    itemList = [item for item in itemList if item.get('language', '') == SetContentLang()]
     MediaItems = []
     for item in itemList:
         Mediaitem = MediaItem()
@@ -226,18 +233,18 @@ def BrowseChannels(lang):
         #print Url
         Title = Title.encode('utf-8')
         #print Title
-        Mediaitem.Url = sys.argv[0] + "?url=" + urllib.quote_plus(Url) + "&mode=" + str(Mediaitem.Mode) + "&lang=" + lang
+        Mediaitem.Url = sys.argv[0] + "?url=" + urllib.quote_plus(Url) + "&mode=" + str(Mediaitem.Mode) + "&lang=" + SetContentLang()
         Mediaitem.ListItem.setInfo('video', { 'Title': Title, 'Plot': Plot})
         Mediaitem.ListItem.setThumbnailImage(Mediaitem.Image)
         Mediaitem.ListItem.setLabel(Title)
-        Mediaitem.Isfolder = True
+        Mediaitem.IsFolder = True
         MediaItems.append(Mediaitem)
+        
     addDir(MediaItems)
 
     # End of Directory
     xbmcplugin.endOfDirectory(int(sys.argv[1]))
-    ## Set Default View Mode. This might break with different skins. But who cares?
-    #xbmc.executebuiltin("Container.SetViewMode(503)")
+    ## Set Default View Mode
     SetViewMode()
     
     
@@ -245,22 +252,25 @@ def BrowseChannels(lang):
 ## Mode == M_BROWSE_CHANNEL_CONTENTS
 ## BROWSE CONTENTS
 ###########################################################   
-def Browse(url, lang):
-    #print 'Browse Contents'
+def Browse(url, user):
+    print 'Browse Channel Contents'
     # set content type so library shows more views and info
     xbmcplugin.setContent(int(sys.argv[1]), 'movies')
     
     # Get contents for given url
     #print url
     ItemsPerPage, StartIndex = re.compile('qte=(\d+)&at_index=(\d+)&').findall(url)[0]
+    print 'ItemsPerPage '+ ItemsPerPage
+    print 'StartIndex ' + StartIndex
     ItemsPerPageInt = int( ItemsPerPage )
     StartIndexInt = int( StartIndex )
     #URL = API_URL + HOMESLIDE
     data = getURL(url)
     #data = load_local_json('search.json')
     items = json.loads(data)
-    ItemCount = int(items['data_length'])
-    if ItemCount < 1:
+    ItemCountInt = int(items['data_length'])
+    print 'ItemCount ' + str(ItemCountInt)
+    if ItemCountInt < 1:
         return
     itemList = items['data']
     itemList = [item for item in itemList]
@@ -293,47 +303,44 @@ def Browse(url, lang):
         Mediaitem.ListItem.setProperty('IsPlayable', 'true')
         Mediaitem.ListItem.setLabel(Title)
         MediaItems.append(Mediaitem)
-    NextStart = StartIndexInt + ItemsPerPageInt
-    if NextStart < ItemCount:
-        # One Mediaitem for Channels
-        Mediaitem = MediaItem()
-        Url = url.replace('at_index='+StartIndex, 'at_index='+str(NextStart))
+        
+    # Handle multiple page content
+    if ItemCountInt == ItemsPerPageInt:
+        print 'Adding Next item for navigation to remaining content'
+        NextStartInt = StartIndexInt + ItemsPerPageInt
+        print 'NextStart ' + str(NextStartInt)
+        StartIndexInt = NextStartInt
+        # One Mediaitem for Next navigation
+        Url = url.replace('at_index='+StartIndex, 'at_index='+str(NextStartInt))
         Mode = M_BROWSE_CHANNEL_CONTENTS
         Title = __settings__.getLocalizedString(30014)
         Thumb = next_thumb
+        Mediaitem = MediaItem()
         Mediaitem.Url = sys.argv[0] + "?url=" + urllib.quote_plus(Url) + "&mode=" + str(Mode) + "&name=" + urllib.quote_plus(Title)
         Mediaitem.ListItem.setThumbnailImage(Thumb)
         Mediaitem.ListItem.setLabel(Title)
-        Mediaitem.Isfolder = True
+        Mediaitem.IsFolder = True
         MediaItems.append(Mediaitem)
-    # One Mediaitem for Channels
-    Mediaitem = MediaItem()
-    Url = ''
-    Mode = M_BROWSE_CHANNELS
-    Title = __settings__.getLocalizedString(30012)
-    Thumb = topics_thumb
-    Mediaitem.Url = sys.argv[0] + "?url=" + urllib.quote_plus(Url) + "&mode=" + str(Mode) + "&lang=" + lang
-    Mediaitem.ListItem.setThumbnailImage(Thumb)
-    Mediaitem.ListItem.setLabel(Title)
-    Mediaitem.Isfolder = True
-    MediaItems.append(Mediaitem)
-    # One Mediaitem for Search
-    Mediaitem = MediaItem()
-    Url = ''
-    Mode = M_SEARCH
-    Title = __settings__.getLocalizedString(30013)
-    Thumb = search_thumb
-    Mediaitem.Url = sys.argv[0] + "?url=" + urllib.quote_plus(Url) + "&mode=" + str(Mode) + "&lang=" + lang
-    Mediaitem.ListItem.setThumbnailImage(Thumb)
-    Mediaitem.ListItem.setLabel(Title)
-    Mediaitem.Isfolder = True
-    MediaItems.append(Mediaitem)
+        
+    if StartIndexInt > 0:      
+        # One Mediaitem for Back to... Top
+        Mediaitem = MediaItem()
+        Url = ''
+        Mode = None        
+        Title = __settings__.getLocalizedString(30015) + __settings__.getLocalizedString(30016)
+        Thumb = topics_thumb
+        Mediaitem.Url = sys.argv[0] + "?url=" + urllib.quote_plus(Url) + "&mode=" + str(Mode) + "&lang=" + SetContentLang()
+        Mediaitem.ListItem.addContextMenuItems([ ('Go up', 'Action(ParentDir)') ])
+        Mediaitem.ListItem.setThumbnailImage(Thumb)
+        Mediaitem.ListItem.setLabel(Title)        
+        Mediaitem.IsFolder = True
+        MediaItems.append(Mediaitem)
+            
     addDir(MediaItems)
 
     # End of Directory
     xbmcplugin.endOfDirectory(int(sys.argv[1]))
-    ## Set Default View Mode. This might break with different skins. But who cares?
-    #xbmc.executebuiltin("Container.SetViewMode(503)")
+    ## Set Default View Mode
     SetViewMode()
     
 ###########################################################
@@ -348,6 +355,7 @@ def Play(url):
     #print url
     #URL = API_URL + HOMESLIDE
     data = getURL(url)
+    print data
     #data = load_local_json('mediainfo.json')
     items = json.loads(data)
     item = items['data'].get('film', '')
@@ -402,8 +410,44 @@ def SetViewMode():
         print "SetViewMode Failed: " + __settings__.getSetting('view_mode')
         print "Skin: " + xbmc.getSkinDir()
 
+# Set Content Language selected in the setting
+def SetContentLang():
+    try:
+        if __settings__.getSetting('lang') == "1": # English
+            lang = 'en'
+        if __settings__.getSetting('lang') == "2": # French
+            lang = 'fr'
+    except:
+        print "GetDefLang Failed: " + __settings__.getSetting('lang')
+    #print lang  
+    return lang
+
+# Set View Mode selected in the setting
+def SetViewMode():
+    try:
+        # if (xbmc.getSkinDir() == "skin.confluence"):
+        if __settings__.getSetting('view_mode') == "1": # List
+            xbmc.executebuiltin('Container.SetViewMode(502)')
+        if __settings__.getSetting('view_mode') == "2": # Big List
+            xbmc.executebuiltin('Container.SetViewMode(51)')
+        if __settings__.getSetting('view_mode') == "3": # Thumbnails
+            xbmc.executebuiltin('Container.SetViewMode(500)')
+        if __settings__.getSetting('view_mode') == "4": # Poster Wrap
+            xbmc.executebuiltin('Container.SetViewMode(501)')
+        if __settings__.getSetting('view_mode') == "5": # Fanart
+            xbmc.executebuiltin('Container.SetViewMode(508)')
+        if __settings__.getSetting('view_mode') == "6":  # Media info
+            xbmc.executebuiltin('Container.SetViewMode(504)')
+        if __settings__.getSetting('view_mode') == "7": # Media info 2
+            xbmc.executebuiltin('Container.SetViewMode(503)')
+    except:
+        print "SetViewMode Failed: " + __settings__.getSetting('view_mode')
+        print "Skin: " + xbmc.getSkinDir()
+
 # Search documentaries
-def SEARCH(url, lang):
+def SEARCH(url):
+        #print 'Search for content'
+        #print url
         if url is None or url == '':
             keyb = xbmc.Keyboard('', 'Search NFB')
             keyb.doModal()
@@ -415,10 +459,9 @@ def SEARCH(url, lang):
             #search = search.replace(" ", "+")
             encSrc = urllib.quote(search)
             SearchIndex = 0
-            Surl = SEARCHURL % (lang, encSrc, SearchIndex)
+            Surl = SEARCHURL % (SetContentLang(), encSrc, SearchIndex)
             url = API_URL % Surl
-        
-        Browse(url, lang)
+        Browse(url, 'search')
 
 ## Get Parameters
 def get_params():
@@ -443,7 +486,7 @@ def addDir(Listitems):
         return
     Items = []
     for Listitem in Listitems:
-        Item = Listitem.Url, Listitem.ListItem, Listitem.Isfolder
+        Item = Listitem.Url, Listitem.ListItem, Listitem.IsFolder
         Items.append(Item)
     handle = pluginhandle
     xbmcplugin.addDirectoryItems(handle, Items)
@@ -460,7 +503,6 @@ url = None
 name = None
 mode = None
 titles = None
-lang = None
 try:
         url = urllib.unquote_plus(params["url"])
 except:
@@ -477,10 +519,6 @@ try:
         titles = urllib.unquote_plus(params["titles"])
 except:
         pass
-try:
-    lang = params['lang']
-except:
-    pass
 
 xbmc.log( "Mode: " + str(mode) )
 #print "URL: " + str(url)
@@ -492,12 +530,12 @@ if mode == None:
 elif mode == M_DO_NOTHING:
     print 'Doing Nothing'
 elif mode == M_SEARCH:
-    SEARCH(url, lang)
+    SEARCH(url)    
 elif mode == M_BROWSE_CHANNELS:
-    BrowseChannels(lang)
+    BrowseChannels()
 elif mode == M_BROWSE_CHANNEL_CONTENTS:
-    Browse(url, lang)
+    Browse(url, 'channel')
 elif mode == M_PLAY:
     Play(url)
 elif mode == M_FEATURED:
-    Featured(lang)
+    Featured()
